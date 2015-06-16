@@ -1,0 +1,97 @@
+Public Sub adjustNonInterstateNegativeRoutes()
+ 
+    Dim pMXDoc  As IMxDocument
+    Dim pMap As IMap
+    Set pMXDoc = ThisDocument
+    Set pMap = pMXDoc.FocusMap
+    Dim pFL As IFeatureLayer
+        
+    '**** SET THIS...Table of Contents position of routes feature class
+    Set pFL = pMap.Layer(3)
+    '****
+     
+    Dim pRouteFC As IFeatureClass
+    Dim pTarQF As IQueryFilter
+    Dim pTarFCu As IFeatureCursor
+    Dim pTarF As IFeature
+    Dim pSrcQF As IQueryFilter
+    Dim pSrcFCu As IFeatureCursor
+    Dim pSrcF As IFeature
+    
+    Dim pClosePoint As IPoint
+    Dim pPoint As IPoint
+    Dim pPC As IPointCollection
+    Dim p As Long
+    Dim pMAware As IMAware
+    Dim pCurve As ICurve
+    Dim pMSegmentation As IMSegmentation
+    Dim outlen As Double
+    Dim outoffset As Double
+    Dim outright As Boolean
+    Dim Ms As Variant
+    Dim pNewPC As IPointCollection
+    Dim labelFieldIndexPos As Long
+    Dim pPolyline As IPolyline
+    
+    Set pRouteFC = pFL.FeatureClass
+    labelFieldIndexPos = pRouteFC.FindField("LABEL")
+    
+    'Interate thru non freeway N routes and also X routes
+    Set pTarQF = New QueryFilter
+    pTarQF.WhereClause = "LABEL like '%X%' or (LABEL like '%N%' and not (LABEL like '%0015%' or " _
+                       & "LABEL like '%0070%' or LABEL like '%0080%' or LABEL like '%0084%' or LABEL like '%0215%'))"
+    Set pTarFCu = pRouteFC.Update(pTarQF, False)
+    Set pTarF = pTarFCu.NextFeature
+    
+    Do Until pTarF Is Nothing
+ 
+        'get corresponding positive direction road polyline
+        Set pSrcQF = New QueryFilter
+        pSrcQF.WhereClause = "LABEL = '" & Replace(Replace(pTarF.Value(labelFieldIndexPos), "N", "P"), "X", "P") & "'"
+        Debug.Print pSrcQF.WhereClause
+ 
+        Set pSrcFCu = pRouteFC.Search(pSrcQF, True)
+        Set pSrcF = pSrcFCu.NextFeature
+ 
+        If Not pSrcF Is Nothing Then
+ 
+          Set pMSegmentation = pSrcF.Shape
+          Set pCurve = pSrcF.Shape
+ 
+          Set pPC = pTarF.Shape
+ 
+          For p = 0 To pPC.PointCount - 1
+            Set pPoint = pPC.Point(p)
+            Set pClosePoint = New esriGeometry.Point
+            Set pMAware = pClosePoint
+            pMAware.MAware = True
+ 
+            pCurve.QueryPointAndDistance esriNoExtension, pPoint, False, pClosePoint, outlen, outoffset, outright
+ 
+            Ms = pMSegmentation.GetMsAtDistance(outlen, False)
+            pClosePoint.M = Ms(0)
+ 
+
+            pPoint.M = pClosePoint.M
+            Debug.Print pPoint.X; pPoint.Y; pPoint.M
+            pPC.UpdatePoint p, pPoint
+ 
+          Next p
+ 
+          Set pTarF.Shape = pPC
+ 
+          Dim pcurv As ICurve
+          Set pcurv = pTarF.Shape
+          Debug.Print pcurv.Length
+          
+          pTarFCu.UpdateFeature pTarF
+ 
+        End If
+ 
+        Set pTarF = pTarFCu.NextFeature
+        
+    Loop
+    
+    pTarFCu.Flush
+    
+End Sub
