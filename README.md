@@ -1,0 +1,2 @@
+# UDOT-LRS-Negative-Route-Agreement-Freeways
+This old Visual Basic script runs in ArcMap and uses the ArcObjects IMSegmentation object to adjusts M coordinates on negative direction Utah freeways to agree with the M coordinate values from the opposite (positive) side of the freeway. It interpolates an M milepost value for the closest location along the positive side freeway centerline polylineM feature. 
